@@ -2,9 +2,10 @@ from keras.preprocessing.text import Tokenizer
 from keras_preprocessing.sequence import pad_sequences
 import pickle
 import random
+import numpy as np
 
 def load_datasets(filename):
-    return pickle.load(open(filename, 'rb'))
+    return np.array(pickle.load(open(filename, 'rb')))
 
 def produce_train_test(en, fr, ratio = 0.9, total_size = 100):
     n_train = int(total_size * ratio)
