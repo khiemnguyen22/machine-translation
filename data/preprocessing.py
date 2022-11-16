@@ -3,14 +3,15 @@ import re
 from pickle import dump
 from unicodedata import normalize
 import argparse
+import io
 
 # load doc into memory
 def load_doc(filename):
-	# open the file as read only
+
 	file = open(filename, mode='rt', encoding='utf-8')
-	# read all text
+
 	text = file.read()
-	# close the file
+
 	file.close()
 	return text
  
@@ -18,30 +19,33 @@ def load_doc(filename):
 def to_sentences(doc, total_size):
 	return doc.strip().split('\n')[:total_size]
  
+def preprocess_line(line):
+
+	re_print = re.compile('[^%s]' % re.escape(string.printable))
+
+	table = str.maketrans('', '', string.punctuation)
+
+	line = normalize('NFD', line).encode('ascii', 'ignore')
+	line = line.decode('UTF-8')
+
+	line = line.split()
+
+	line = [word.lower() for word in line]
+
+	line = [word.translate(table) for word in line]
+
+	line = [re_print.sub('', w) for w in line]
+
+	line = [word for word in line if word.isalpha()]
+	line = ' '.join(line)
+	line = '<start> ' + line + ' <end>'
+	return line
+
 # clean a list of lines
 def clean_lines(lines):
 	cleaned = list()
-	# prepare regex for char filtering
-	re_print = re.compile('[^%s]' % re.escape(string.printable))
-	# prepare translation table for removing punctuation
-	table = str.maketrans('', '', string.punctuation)
 	for line in lines:
-		# normalize unicode characters
-		line = normalize('NFD', line).encode('ascii', 'ignore')
-		line = line.decode('UTF-8')
-		# tokenize on white space
-		line = line.split()
-		# convert to lower case
-		line = [word.lower() for word in line]
-		# remove punctuation from each token
-		line = [word.translate(table) for word in line]
-		# remove non-printable chars form each token
-		line = [re_print.sub('', w) for w in line]
-		# remove tokens with numbers in them
-		line = [word for word in line if word.isalpha()]
-		line = ' '.join(line)
-		line = '<start> ' + line + ' <end>'
-		# store as string
+		line = preprocess_line(line)
 		cleaned.append(line)
 	return cleaned
  
@@ -49,6 +53,12 @@ def clean_lines(lines):
 def save_clean_sentences(sentences, filename):
 	dump(sentences, open(filename, 'wb'))
 	print('Saved: %s' % filename)
+
+def create_manythings_dataset(path, num_examples):
+    lines = io.open(path, encoding='UTF-8').read().strip().split('\n')
+
+    word_pairs = [[preprocess_line(w) for w in l.split('\t', 2)[:-1]]  for l in lines[:num_examples]]
+    return zip(*word_pairs)
 
 def preprocessing_pipeline(file, out_name, total_size):
     doc = load_doc(file)
@@ -72,5 +82,5 @@ if __name__ == '__main__':
 
     parser.add_argument('--target_data', type=str, default='europarl-v7.fr-en.fr')
 
-    parser.add_argument('--total_size', type=int, default=1000)
+    parser.add_argument('--total_size', type=int, default=10000)
     main(parser.parse_args())
